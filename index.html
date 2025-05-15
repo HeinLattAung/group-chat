@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Chat App Login/Signup</title>
+<link rel="stylesheet" href="styles.css" />
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    padding: 20px;
+    background: #f4f4f4;
+  }
+  .container {
+    max-width: 480px;
+    margin: auto;
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+  }
+  .tab-buttons button {
+    width: 50%;
+    padding: 10px;
+    font-weight: bold;
+    cursor: pointer;
+  }
+  .form-section {
+    margin-top: 20px;
+  }
+  input[type=text], input[type=password] {
+    width: 95%;
+    padding: 10px;
+    margin: 8px 0;
+    display: block;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+  }
+  button.submit-btn {
+    padding: 10px;
+    width: 100%;
+    background-color: chocolate;
+    border: none;
+    color: white;
+    font-size: 18px;
+    cursor: pointer;
+    border-radius: 5px;
+  }
+  #group-section, #chat-section {
+    margin-top: 30px;
+  }
+  #messages {
+    list-style: none;
+    padding: 0;
+    max-height: 250px;
+    overflow-y: auto;
+    border: 1px solid #ccc;
+    background: #eee;
+    border-radius: 5px;
+  }
+  #messages li {
+    margin: 8px;
+    padding: 10px;
+    background: #d1ecf1;
+    border-radius: 5px;
+  }
+  #message-input {
+    width: 75%;
+    padding: 10px;
+  }
+  #send-message-btn {
+    padding: 11px;
+    width: 23%;
+    background-color: steelblue;
+    color: white;
+    border: none;
+    cursor: pointer;
+    border-radius: 5px;
+  }
+</style>
+</head>
+<body>
+  <div class="container">
+    <div class="tab-buttons">
+      <button id="btn-login" onclick="showForm('login')">Login</button>
+      <button id="btn-signup" onclick="showForm('signup')">Sign Up</button>
+    </div>
+
+    <div id="login-form" class="form-section">
+      <input type="text" id="login-username" placeholder="Username" />
+      <input type="password" id="login-password" placeholder="Password" />
+      <button class="submit-btn" onclick="login()">Login</button>
+    </div>
+
+    <div id="signup-form" class="form-section" style="display:none;">
+      <input type="text" id="signup-username" placeholder="Username" />
+      <input type="password" id="signup-password" placeholder="Password" />
+      <button class="submit-btn" onclick="signup()">Sign Up</button>
+    </div>
+
+    <div id="group-section" style="display:none;">
+      <h3>Group Chat</h3>
+      <input type="text" id="group-id" placeholder="Group ID" />
+      <button class="submit-btn" onclick="joinGroup()">Join Group</button>
+      <button class="submit-btn" onclick="createGroup()">Create Group</button>
+    </div>
+
+    <div id="chat-section" style="display:none;">
+      <h4 id="chat-group-name"></h4>
+    <div id="chatbox">
+      <ul id="messages"></ul>
+    </div>
+      <input type="text" id="message-input" placeholder="Enter message..." />
+      <button id="send-message-btn" onclick="sendMessage()">Send</button>
+    </div>
+  </div>
+
+  <script type="module">
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-app.js";
+import {
+  getDatabase,
+  ref,
+  set,
+  get,
+  child,
+  push,
+  onChildAdded,
+  remove,
+  onChildRemoved
+} from "https://www.gstatic.com/firebasejs/11.7.1/firebase-database.js";
+
+// Firebase Config
+const firebaseConfig = {
+  apiKey: "AIzaSyBB51HT0esLWJTkVKCfvs-aYWedFJmcnes",
+  authDomain: "private-c6dbe.firebaseapp.com",
+  databaseURL: "https://private-c6dbe-default-rtdb.firebaseio.com",
+  projectId: "private-c6dbe",
+  storageBucket: "private-c6dbe.appspot.com",
+  messagingSenderId: "449780631555",
+  appId: "1:449780631555:web:93a3a323564b3373976636"
+};
+
+// Init Firebase
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+let currentUser = null;
+let currentGroup = null;
+window.myName = null;
+
+// Show login/signup toggle
+window.showForm = function (type) {
+  document.getElementById("login-form").style.display = type === "login" ? "block" : "none";
+  document.getElementById("signup-form").style.display = type === "signup" ? "block" : "none";
+};
+
+// Sign Up
+window.signup = async function () {
+  const username = document.getElementById("signup-username").value.trim();
+  const password = document.getElementById("signup-password").value.trim();
+  if (!username || !password) return alert("Please fill all fields");
+
+  const userRef = ref(db, "users/" + username);
+  const snapshot = await get(userRef);
+  if (snapshot.exists()) return alert("Username already exists");
+
+  await set(userRef, { username, password });
+  alert("Signup successful! Please log in.");
+  showForm("login");
+};
+
+// Login
+window.login = async function () {
+  const username = document.getElementById("login-username").value.trim();
+  const password = document.getElementById("login-password").value.trim();
+  if (!username || !password) return alert("Please fill all fields");
+
+  const userRef = ref(db, "users/" + username);
+  const snapshot = await get(userRef);
+
+  if (!snapshot.exists()) return alert("User not found");
+  if (snapshot.val().password !== password) return alert("Incorrect password");
+
+  currentUser = username;
+  window.myName = username; // ✅ Set myName
+  document.getElementById("login-form").style.display = "none";
+  document.getElementById("signup-form").style.display = "none";
+  document.querySelector(".tab-buttons").style.display = "none";
+  document.getElementById("group-section").style.display = "block";
+
+  alert("Welcome " + currentUser + "!");
+};
+
+// Create Group
+window.createGroup = async function () {
+  const groupId = document.getElementById("group-id").value.trim();
+  if (!groupId) return alert("Enter a group ID");
+
+  const groupRef = ref(db, "groups/" + groupId);
+  const snapshot = await get(groupRef);
+
+  if (snapshot.exists()) return alert("Group already exists");
+
+  await set(groupRef, { createdBy: currentUser });
+  currentGroup = groupId;
+  openChat();
+};
+
+// Join Group
+window.joinGroup = async function () {
+  const groupId = document.getElementById("group-id").value.trim();
+  if (!groupId) return alert("Enter a group ID");
+
+  const groupRef = ref(db, "groups/" + groupId);
+  const snapshot = await get(groupRef);
+
+  if (!snapshot.exists()) return alert("Group not found");
+
+  currentGroup = groupId;
+  openChat();
+};
+
+// Open Chat UI
+function openChat() {
+  document.getElementById("group-section").style.display = "none";
+  document.getElementById("chat-section").style.display = "block";
+  document.getElementById("chat-group-name").textContent = "Group: " + currentGroup;
+
+  const messagesRef = ref(db, "groups/" + currentGroup + "/messages");
+  const messagesUl = document.getElementById("messages");
+  messagesUl.innerHTML = "";
+
+  onChildAdded(messagesRef, (snapshot) => {
+    const msg = snapshot.val();
+    const li = document.createElement("li");
+    li.id = "message-" + snapshot.key;
+
+    const isMine = msg.sender === myName;
+    li.innerHTML = `
+      ${isMine ? `<button data-id="${snapshot.key}" onclick="deleteMessage(this)">Delete</button>` : ""}
+      <strong>${msg.sender}:</strong> ${msg.message}
+    `;
+    messagesUl.appendChild(li);
+    messagesUl.scrollTop = messagesUl.scrollHeight;
+  });
+
+  // Message Removed UI
+  onChildRemoved(messagesRef, (snapshot) => {
+    const li = document.getElementById("message-" + snapshot.key);
+    if (li) li.innerHTML = "<em>This message has been removed</em>";
+  });
+}
+
+// Send Message
+window.sendMessage = function () {
+  const input = document.getElementById("message-input");
+  const text = input.value.trim();
+  if (!text) return false;
+
+  const messagesRef = ref(db, "groups/" + currentGroup + "/messages");
+  push(messagesRef, { sender: myName, message: text });
+  input.value = "";
+  return false;
+};
+
+// Delete Message (with optional undo feature)
+const deleteTimers = {};
+const messageBackups = {};
+const countdowns = {};
+
+window.deleteMessage = function (button) {
+  const messageId = button.getAttribute("data-id");
+  const li = document.getElementById("message-" + messageId);
+
+  // Backup original content
+  messageBackups[messageId] = li.innerHTML;
+
+  let secondsLeft = 5;
+  li.innerHTML = `
+    <em id="countdown-${messageId}">This message will be deleted in ${secondsLeft} seconds...</em>
+    <button onclick="undoDelete('${messageId}')">Undo</button>
+  `;
+
+  // Start countdown display
+  countdowns[messageId] = setInterval(() => {
+    secondsLeft--;
+    const countdownText = document.getElementById("countdown-" + messageId);
+    if (countdownText) {
+      countdownText.textContent = `This message will be deleted in ${secondsLeft} seconds...`;
+    }
+    if (secondsLeft <= 0) {
+      clearInterval(countdowns[messageId]);
+    }
+  }, 1000);
+
+  // Start delete timer
+  deleteTimers[messageId] = setTimeout(() => {
+    remove(ref(db, "groups/" + currentGroup + "/messages/" + messageId));
+    clearInterval(countdowns[messageId]);
+    delete deleteTimers[messageId];
+    delete messageBackups[messageId];
+    delete countdowns[messageId];
+  }, 5000);
+};
+
+window.undoDelete = function (messageId) {
+  clearTimeout(deleteTimers[messageId]);
+  clearInterval(countdowns[messageId]);
+
+  const li = document.getElementById("message-" + messageId);
+  if (li && messageBackups[messageId]) {
+    li.innerHTML = messageBackups[messageId];
+  }
+
+  delete deleteTimers[messageId];
+  delete countdowns[messageId];
+  delete messageBackups[messageId];
+};
+
+  </script>
+</body>
+</html>
